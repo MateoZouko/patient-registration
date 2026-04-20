@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Modal } from './Modal';
 import { RegistrationForm } from './RegistrationForm';
 import { SubmissionModal } from './SubmissionModal';
-import { PatientFormData } from '../types/patient';
+import type { PatientFormData } from '../types/patient';
 import { registerPatient } from '../api/patients';
 
 interface Props {

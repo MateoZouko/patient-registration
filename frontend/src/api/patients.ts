@@ -1,4 +1,4 @@
-import { Patient, PatientFormData } from '../types/patient';
+import type { Patient, PatientFormData } from '../types/patient';
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
 

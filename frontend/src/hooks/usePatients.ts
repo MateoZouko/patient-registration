@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useRef, useReducer } from 'react';
-import { Patient } from '../types/patient';
+import type { Patient } from '../types/patient';
 import { fetchPatients } from '../api/patients';
 
 interface State {

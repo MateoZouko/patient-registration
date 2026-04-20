@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Patient } from '../types/patient';
+import type { Patient } from '../types/patient';
 import { getPhotoUrl } from '../api/patients';
 
 interface Props {

@@ -1,5 +1,5 @@
 import { useState, FormEvent } from 'react';
-import { PatientFormData, FormErrors } from '../types/patient';
+import type { PatientFormData, FormErrors } from '../types/patient';
 import { FormField } from './FormField';
 import { inputStyle } from './inputStyle';
 import { PhotoDropzone } from './PhotoDropzone';
