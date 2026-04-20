@@ -12,14 +12,12 @@ patients_bp = Blueprint("patients", __name__, url_prefix="/api")
 
 
 def _verify_jpeg(file_storage) -> bool:
-    """Return True only when the uploaded bytes are a genuine JPEG image."""
     try:
-        header = file_storage.read(512)
+        content = file_storage.read()
         file_storage.seek(0)
-        img = Image.open(io.BytesIO(header + file_storage.read()))
-        file_storage.seek(0)
+        img = Image.open(io.BytesIO(content))
         return img.format == "JPEG"
-    except (UnidentifiedImageError, Exception):
+    except Exception:
         return False
 
 
