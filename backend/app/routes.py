@@ -6,7 +6,7 @@ from PIL import Image, UnidentifiedImageError
 
 from .database import get_connection
 from .validators import validate_patient
-from .mailer import send_confirmation_async
+from .notifier import send_confirmation_async
 
 patients_bp = Blueprint("patients", __name__, url_prefix="/api")
 
@@ -58,7 +58,7 @@ def create_patient():
     save_path = os.path.join(upload_folder, unique_name)
     photo_file.save(save_path)
 
-    relative_path = f"/uploads/{unique_name}"
+    relative_path = f"/api/uploads/{unique_name}"
     email = form_data["email"].strip().lower()
 
     conn = get_connection()
