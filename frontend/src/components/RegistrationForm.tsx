@@ -1,4 +1,5 @@
-import { useState, FormEvent } from 'react';
+import { useState } from 'react';
+import type { FormEvent } from 'react';
 import type { PatientFormData, FormErrors } from '../types/patient';
 import { FormField } from './FormField';
 import { inputStyle } from './inputStyle';
