@@ -24,19 +24,57 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-patients_user}:${POSTGRES_PASSWORD:-patients_pass}@db:5432/${POSTGRES_DB:-patients_db}
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_KEY: ""
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: ${POSTGRES_DB:-patients_db}
+      DB_USERNAME: ${POSTGRES_USER:-patients_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-patients_pass}
+      MAIL_MAILER: smtp
       MAIL_HOST: ${MAIL_HOST:-sandbox.smtp.mailtrap.io}
       MAIL_PORT: ${MAIL_PORT:-2525}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
-      MAIL_FROM: ${MAIL_FROM:-noreply@patients.dev}
-      UPLOAD_FOLDER: /app/uploads
-      MAX_CONTENT_LENGTH: 5242880
+      MAIL_FROM_ADDRESS: ${MAIL_FROM:-noreply@patients.dev}
+      MAIL_FROM_NAME: "Patient Registration"
+      QUEUE_CONNECTION: database
+      CORS_ALLOWED_ORIGIN: "http://localhost:3000"
     volumes:
-      - ./backend:/app
-      - uploads_data:/app/uploads
+      - uploads_data:/app/storage/app/public/uploads
     ports:
-      - "5000:5000"
+      - "5000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  queue-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    entrypoint: ["sh", "-c", "until php artisan migrate:status > /dev/null 2>&1; do echo '[worker] Waiting for migrations...'; sleep 3; done && php artisan queue:work --sleep=3 --tries=3"]
+    environment:
+      APP_ENV: local
+      APP_KEY: ""
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: ${POSTGRES_DB:-patients_db}
+      DB_USERNAME: ${POSTGRES_USER:-patients_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-patients_pass}
+      MAIL_MAILER: smtp
+      MAIL_HOST: ${MAIL_HOST:-sandbox.smtp.mailtrap.io}
+      MAIL_PORT: ${MAIL_PORT:-2525}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM:-noreply@patients.dev}
+      MAIL_FROM_NAME: "Patient Registration"
+      QUEUE_CONNECTION: database
+    volumes:
+      - uploads_data:/app/storage/app/public/uploads
     depends_on:
       db:
         condition: service_healthy

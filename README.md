@@ -1,16 +1,16 @@
 # Patient Registration
 
-A full-stack application for registering patients. Built with Python/Flask (backend) and React + TypeScript (frontend), backed by PostgreSQL, containerised with Docker.
+A full-stack application for registering patients. Built with PHP/Laravel (backend) and React + TypeScript (frontend), backed by PostgreSQL, containerised with Docker.
 
 ## Stack
 
-| Layer     | Technology                          |
-|-----------|-------------------------------------|
-| Backend   | Python 3.11, Flask 3, psycopg2-binary |
-| Frontend  | React 19, TypeScript, Vite          |
-| Database  | PostgreSQL 15                       |
-| Email     | SMTP (Mailtrap for development)     |
-| Container | Docker + Docker Compose             |
+| Layer     | Technology                                  |
+|-----------|---------------------------------------------|
+| Backend   | PHP 8.2, Laravel 11, raw SQL (no ORM)       |
+| Frontend  | React 19, TypeScript, Vite                  |
+| Database  | PostgreSQL 15                               |
+| Email     | SMTP + Laravel Queues (Mailtrap for dev)    |
+| Container | Docker + Docker Compose                     |
 
 ---
 
@@ -50,39 +50,35 @@ You can obtain free Mailtrap credentials at [mailtrap.io](https://mailtrap.io).
 docker compose up --build
 ```
 
-| Service  | URL                        |
-|----------|----------------------------|
-| Frontend | http://localhost:3000      |
-| Backend  | http://localhost:5000      |
+| Service       | URL                        |
+|---------------|----------------------------|
+| Frontend      | http://localhost:3000      |
+| Backend (API) | http://localhost:5000      |
 
-The database schema is created automatically on first startup.
+The database schema is created automatically on first startup via Laravel migrations.
 
 ---
 
 ## Running Tests
 
-Tests run inside the backend container (no local Python environment required).
+Tests run inside the backend container (no local PHP environment required).
 
 ```bash
-# Install test dependencies inside the container (first time only)
-docker compose exec backend pip install pytest pytest-mock
-
-# Run all tests
-docker compose exec backend python -m pytest tests/ -v
+docker compose exec backend php artisan test
 ```
 
-**42 tests** covering:
+**45 tests** covering:
 
 | Suite | Tests |
 |---|---|
-| `test_validators.py` | Every validation rule — name (letters only, accents, length), email (@gmail.com), country code (+N format), phone number (4–15 digits), photo extension |
-| `test_routes.py` | Health check, patient listing, successful registration, field validation errors, PNG renamed to .jpg rejected by Pillow, duplicate email (409), async email dispatch |
+| `Unit/ValidatorTest` | Every validation rule — name (letters only, accents, length), email (@gmail.com), country code (+N format), phone number (4–15 digits), photo extension and MIME type |
+| `Feature/PatientTest` | Health check, patient listing, successful registration, field validation errors, PNG renamed to .jpg rejected by MIME check, duplicate email (409), queue job dispatch |
 
-To run a specific file:
+To run a specific suite:
 
 ```bash
-docker compose exec backend python -m pytest tests/test_validators.py -v
-docker compose exec backend python -m pytest tests/test_routes.py -v
+docker compose exec backend php artisan test --testsuite=Unit
+docker compose exec backend php artisan test --testsuite=Feature
 ```
 
 ---
@@ -102,8 +98,8 @@ Returns all registered patients ordered by registration date (newest first).
     "email": "jane@gmail.com",
     "phone_code": "+598",
     "phone_number": "99123456",
-    "photo_path": "/uploads/uuid.jpg",
-    "created_at": "2026-01-15T10:30:00+00:00"
+    "photo_path": "/api/uploads/uuid.jpg",
+    "created_at": "2026-01-15 10:30:00+00"
   }
 ]
 ```
@@ -135,13 +131,13 @@ Registers a new patient. Expects `multipart/form-data`.
 
 **Response `409`** — duplicate email.
 
-**Response `413`** — file exceeds the 5 MB limit.
+**Response `413`** — file exceeds the 5 MB limit (handled by Laravel's `ValidatePostSize` middleware).
 
 ---
 
 ### `GET /api/uploads/<filename>`
 
-Serves uploaded document photos.
+Serves uploaded document photos directly from storage.
 
 ---
 
@@ -155,15 +151,21 @@ Health check. Returns `{"status": "ok"}`.
 
 ### Backend
 
+Requires PHP 8.2, Composer, and a running PostgreSQL instance.
+
 ```bash
 cd backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt          # production deps
-pip install -r requirements-dev.txt      # adds pytest + pytest-mock
+composer install
+cp .env.example .env   # set DB_* and MAIL_* vars
+php artisan key:generate
+php artisan migrate
+php artisan serve
+```
 
-export DATABASE_URL=postgresql://patients_user:patients_pass@localhost:5432/patients_db
-python run.py
+To process queued emails in the background:
+
+```bash
+php artisan queue:work
 ```
 
 ### Frontend
@@ -184,18 +186,32 @@ npm run dev
 patient-registration/
 ├── backend/
 │   ├── app/
-│   │   ├── __init__.py      # Flask factory, 413 error handler
-│   │   ├── database.py      # DB connection & schema init (raw SQL)
-│   │   ├── routes.py        # API endpoints, Pillow MIME verification
-│   │   ├── validators.py    # Server-side field validation
-│   │   └── mailer.py        # Async email via daemon thread
+│   │   ├── Http/
+│   │   │   ├── Controllers/
+│   │   │   │   └── PatientController.php   # GET /patients, POST /patients, GET /uploads
+│   │   │   └── Requests/
+│   │   │       └── RegisterPatientRequest.php  # Field validation (FormRequest)
+│   │   ├── Jobs/
+│   │   │   └── SendPatientNotification.php # Queue job — dispatches email after registration
+│   │   └── Mail/
+│   │       └── PatientRegistered.php       # Mailable — confirmation email
+│   ├── bootstrap/
+│   │   └── app.php                         # Enables API routing (opt-in in Laravel 11)
+│   ├── config/
+│   │   └── cors.php                        # CORS — allows frontend origin
+│   ├── database/
+│   │   └── migrations/
+│   │       └── ..._create_patients_table.php
+│   ├── resources/views/emails/
+│   │   └── patient_registered.blade.php    # HTML email template
+│   ├── routes/
+│   │   └── api.php                         # All API route definitions
 │   ├── tests/
-│   │   ├── test_validators.py  # 31 unit tests
-│   │   └── test_routes.py      # 11 integration tests
+│   │   ├── Feature/PatientTest.php         # 13 integration tests
+│   │   └── Unit/ValidatorTest.php          # 32 unit tests
 │   ├── Dockerfile
-│   ├── requirements.txt
-│   ├── requirements-dev.txt
-│   └── run.py
+│   ├── entrypoint.sh                       # Writes .env, waits for DB, runs migrations
+│   └── phpunit.xml
 ├── frontend/
 │   ├── src/
 │   │   ├── api/             # API client (fetch + error handling)
